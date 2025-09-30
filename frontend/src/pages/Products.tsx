@@ -31,6 +31,7 @@ const Products: React.FC = () => {
 
   // Create Product Form State
   const [createForm, setCreateForm] = useState<CreateProductRequest>({
+    productCode: '',
     name: '',
     description: '',
     category: '',
