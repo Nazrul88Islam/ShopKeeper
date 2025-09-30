@@ -1,0 +1,16 @@
+{
+  "name": "shopkeeper",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@tailwindcss/postcss7-compat": "^2.2.17",
+    "postcss": "^8.5.6"
+  }
+}
