@@ -217,11 +217,31 @@ const Products: React.FC = () => {
     }
   };
 
+  // Generate suggested product code based on latest from database
+  const generateSuggestedProductCode = () => {
+    // Find the highest product code number from existing products
+    let maxNumber = 0;
+    products.forEach(product => {
+      const match = product.productCode.match(/^PRD(\d+)$/);
+      if (match) {
+        const number = parseInt(match[1]);
+        if (number > maxNumber) {
+          maxNumber = number;
+        }
+      }
+    });
+    
+    // Return next number with 6-digit padding
+    return `PRD${String(maxNumber + 1).padStart(6, '0')}`;
+  };
+
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
-      const response = await productApi.createProduct(createForm);
+      // Generate product code before creating
+      const productCode = generateSuggestedProductCode();
+      const response = await productApi.createProduct({ ...createForm, productCode });
       
       if (response.success) {
         setShowCreateModal(false);
@@ -339,6 +359,7 @@ const Products: React.FC = () => {
     
     try {
       setLoading(true);
+      console.log('Updating product with data:', editForm);
       const response = await productApi.updateProduct(editingProduct._id, editForm);
       
       if (response.success) {
@@ -348,7 +369,23 @@ const Products: React.FC = () => {
         setError(null);
       }
     } catch (err: any) {
-      setError('Error updating product: ' + (err.message || 'Unknown error'));
+      console.error('Product update error:', err);
+      // Enhanced error handling to show specific error messages
+      let errorMessage = 'Error updating product: ';
+      
+      if (err.response?.status === 400) {
+        errorMessage += err.response?.data?.message || 'Invalid data provided.';
+        if (err.response?.data?.errors) {
+          const validationErrors = err.response.data.errors.map((e: any) => e.msg).join(', ');
+          errorMessage += ` Validation errors: ${validationErrors}`;
+        }
+      } else if (err.response?.status === 500) {
+        errorMessage += 'Server error occurred.';
+      } else {
+        errorMessage += err.response?.data?.message || err.message || 'Unknown error';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -431,8 +468,7 @@ const Products: React.FC = () => {
     }
   };
 
-  // Filter products based on search and filters
-  const filteredProducts = products.filter(product => {
+  const filterProducts = (product: Product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -440,7 +476,10 @@ const Products: React.FC = () => {
     const matchesStatus = statusFilter === 'all' || product.status === statusFilter;
     const matchesSupplier = supplierFilter === 'all' || product.supplier === supplierFilter;
     return matchesSearch && matchesCategory && matchesStatus && matchesSupplier;
-  });
+  };
+
+  // Filter products
+  const filteredProducts = products.filter(filterProducts);
 
   // Pagination
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
@@ -700,9 +739,13 @@ const Products: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentProducts.map((product) => {
+                {currentProducts.map((product: Product) => {
                   const statusConfig = getStatusConfig(product.status);
-                  const supplier = suppliers.find(s => s._id === product.supplier);
+                  // Handle supplier lookup - supplier might be a string ID or an object
+                  const supplierId = product.supplier && typeof product.supplier === 'object' ? 
+                    (product.supplier as any)._id : 
+                    product.supplier;
+                  const supplier = supplierId ? suppliers.find(s => s._id === supplierId) : null;
                   return (
                     <tr key={product._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
